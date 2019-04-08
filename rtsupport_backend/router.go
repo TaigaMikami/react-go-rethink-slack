@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"github.com/gorilla/websocket"
-	"go/ast"
 	"net/http"
 )
 
@@ -17,9 +16,9 @@ type Router struct {
 	rules map[string]Handler
 }
 
-type Handler func(interface{})
+type Handler func(*Client, interface{})
 
-func (r *Router) Handle(msgName string, handler func()) {
+func (r *Router) Handle(msgName string, handler Handler) {
 	r.rules[msgName] = handler
 }
 
@@ -29,6 +28,11 @@ func NewRouter() *Router {
 	}
 }
 
+func (r *Router) FindeHandler(msgName string) (Handler, bool) {
+	handler, found := r.rules[msgName]
+	return handler, found
+}
+
 func (e *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	socket, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -36,7 +40,7 @@ func (e *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, err.Error())
 		return
 	}
-	client := NewClient(socket)
+	client := NewClient(socket, e.FindeHandler)
 	go client.Write()
 	client.Read()
 }
